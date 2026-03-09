@@ -1,0 +1,39 @@
+name: custom-slsa-intoto-rekor
+description: Build in-toto SLSA statement from sha384 checksums, DSSE-sign it, and upload it to Rekor
+
+inputs:
+  subject-checksums:
+    description: Path to a sha384 checksums txt file
+    required: true
+  predicate-type:
+    description: in-toto predicateType
+    required: false
+    default: https://slsa.dev/provenance/v1
+  payload-type:
+    description: DSSE payload type
+    required: false
+    default: application/vnd.in-toto+json
+  rekor-server:
+    description: Rekor server URL
+    required: false
+    default: https://rekor.sigstore.dev
+  upload-to-rekor:
+    description: Upload DSSE envelope to Rekor
+    required: false
+    default: "true"
+
+outputs:
+  statement:
+    description: Generated in-toto statement JSON
+  dsse:
+    description: Generated DSSE envelope JSON
+  bundle:
+    description: Cosign bundle JSON
+  certificate-pem:
+    description: Fulcio certificate in PEM
+  rekor-output:
+    description: Rekor CLI output
+
+runs:
+  using: node20
+  main: dist/index.js
