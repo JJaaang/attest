@@ -115,7 +115,15 @@ runs:
           exit 1
         fi
 
-        FINAL_BUNDLE="${PWD}/${BASENAME}.sigstore.json"
-        cp "$WORKDIR/${BASENAME}.sigstore.json" "$FINAL_BUNDLE"
+        LOG_INDEX="$(echo "$RESPONSE" | jq -r '.logIndex // .log_index')"
+
+        if [ -z "$LOG_INDEX" ] || [ "$LOG_INDEX" = "null" ]; then
+          echo "failed to extract logIndex"
+          exit 1
+        fi
+        
+        FINAL_BUNDLE="${PWD}/${BASENAME}.tlog-${LOG_INDEX}.bundle"
+
+        printf '%s\n' "$RESPONSE" | jq . > "$FINAL_BUNDLE"
 
         echo "bundle-path=$FINAL_BUNDLE" >> "$GITHUB_OUTPUT"
