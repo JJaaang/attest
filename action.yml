@@ -122,8 +122,8 @@ runs:
           exit 1
         fi
         
-        FINAL_BUNDLE="${PWD}/.tlog-${LOG_INDEX}.bundle"
-
+        FINAL_BUNDLE="${PWD}/${BASENAME}.tlog-${LOG_INDEX}.bundle"
+        
         printf '%s\n' "$RESPONSE" | jq . > "$FINAL_BUNDLE"
 
         echo "bundle-path=$FINAL_BUNDLE" >> "$GITHUB_OUTPUT"
