@@ -97,7 +97,7 @@ runs:
           --argjson env "$(cat "$WORKDIR/envelope.json")" \
           --arg cert "${CERT_RAW_B64}" \
           --arg alg "${SIGN_ALG}" \
-          '{dsseRequestV002: {envelope: $env, verifiers: [{ x509Certificate: { rawBytes: $cert }, keyDetails: $cert_sa }]}}' \
+          '{dsseRequestV002: {envelope: $env, verifiers: [{ x509Certificate: { rawBytes: $cert }, keyDetails: $alg }]}}' \
           > "$WORKDIR/rekor-v2-request.json"
 
         RESPONSE="$(
