@@ -1,39 +1,121 @@
-name: custom-slsa-intoto-rekor
-description: Build in-toto SLSA statement from sha384 checksums, DSSE-sign it, and upload it to Rekor
+name: "Rekor v2 DSSE Keyless Upload"
+description: "Sign a statement file with cosign keyless, upload as a DSSE entry to Rekor v2, and return the bundle path"
 
 inputs:
-  subject-checksums:
-    description: Path to a sha384 checksums txt file
+  statement-file:
+    description: "Path to the statement JSON file"
     required: true
-  predicate-type:
-    description: in-toto predicateType
-    required: false
-    default: https://slsa.dev/provenance/v1
+
   payload-type:
-    description: DSSE payload type
-    required: false
-    default: application/vnd.in-toto+json
-  rekor-server:
-    description: Rekor server URL
-    required: false
-    default: https://rekor.sigstore.dev
-  upload-to-rekor:
-    description: Upload DSSE envelope to Rekor
-    required: false
-    default: "true"
+    description: "DSSE payloadType (e.g. application/vnd.vigilo.attestation+json)"
+    required: true
 
 outputs:
-  statement:
-    description: Generated in-toto statement JSON
-  dsse:
-    description: Generated DSSE envelope JSON
-  bundle:
-    description: Cosign bundle JSON
-  certificate-pem:
-    description: Fulcio certificate in PEM
-  rekor-output:
-    description: Rekor CLI output
+  bundle-path:
+    description: "Path to the generated Sigstore bundle JSON file"
+    value: ${{ steps.run.outputs.bundle-path }}
 
 runs:
-  using: node20
-  main: dist/index.js
+  using: "composite"
+  steps:
+    - name: Install cosign
+      uses: sigstore/cosign-installer@main
+      with:
+        cosign-release: "v3.0.3"
+
+    - name: Install jq
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y jq
+
+    - name: Run DSSE sign and Rekor v2 upload
+      id: run
+      shell: bash
+      env:
+        STATEMENT_FILE: ${{ inputs.statement-file }}
+        PAYLOAD_TYPE: ${{ inputs.payload-type }}
+        REKOR_SERVER: "https://log2025-1.rekor.sigstore.dev"
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "$STATEMENT_FILE" ]; then
+          echo "statement file not found: $STATEMENT_FILE"
+          exit 1
+        fi
+
+        SIGN_ALG="PKIX_ECDSA_P256_SHA_256"
+
+        BASENAME="$(basename "$STATEMENT_FILE" .json)"
+        WORKDIR="$(mktemp -d)"
+        cp "$STATEMENT_FILE" "$WORKDIR/statement.json"
+
+        TYPE_LEN="$(printf "%s" "$PAYLOAD_TYPE" | wc -c | tr -d ' ')"
+        PAYLOAD_LEN="$(wc -c < "$WORKDIR/statement.json" | tr -d ' ')"
+
+        (
+          printf "DSSEv1 %s %s %s " \
+            "$TYPE_LEN" \
+            "$PAYLOAD_TYPE" \
+            "$PAYLOAD_LEN"
+          cat "$WORKDIR/statement.json"
+        ) > "$WORKDIR/pae.bin"
+
+        curl -sSL \
+          https://raw.githubusercontent.com/sigstore/root-signing/refs/heads/main/targets/signing_config.v0.2.json \
+          | jq 'del(.rekorTlogUrls)' > "$WORKDIR/signing-config-no-tlog.json"
+
+        COSIGN_EXPERIMENTAL=1 cosign sign-blob \
+          --yes \
+          --bundle "$WORKDIR/${BASENAME}.sigstore.json" \
+          --signing-config "$WORKDIR/signing-config-no-tlog.json" \
+          "$WORKDIR/pae.bin"
+
+        SIG_B64="$(jq -r '.messageSignature.signature' "$WORKDIR/${BASENAME}.sigstore.json")"
+        CERT_RAW_B64="$(jq -r '.verificationMaterial.certificate.rawBytes' "$WORKDIR/${BASENAME}.sigstore.json")"
+        PAYLOAD_B64="$(base64 -w0 "$WORKDIR/statement.json")"
+
+        if [ -z "${SIG_B64}" ] || [ "${SIG_B64}" = "null" ]; then
+          echo "failed to extract signature from bundle"
+          exit 1
+        fi
+
+        if [ -z "${CERT_RAW_B64}" ] || [ "${CERT_RAW_B64}" = "null" ]; then
+          echo "failed to extract certificate from bundle"
+          exit 1
+        fi
+
+        jq -n \
+          --arg pt "${PAYLOAD_TYPE}" \
+          --arg p "${PAYLOAD_B64}" \
+          --arg s "${SIG_B64}" \
+          '{payload: $p, payloadType: $pt, signatures: [{sig: $s, keyid: ""}]}' \
+          > "$WORKDIR/envelope.json"
+
+        jq -n \
+          --argjson env "$(cat "$WORKDIR/envelope.json")" \
+          --arg cert "${CERT_RAW_B64}" \
+          --arg alg "${SIGN_ALG}" \
+          '{dsseRequestV002: {envelope: $env, verifier: {x509Certificate: {rawBytes: $cert}, keyDetails: $alg}}}' \
+          > "$WORKDIR/rekor-v2-request.json"
+
+        RESPONSE="$(
+          curl -sS -X POST \
+            "${REKOR_SERVER}/api/v2/log/entries" \
+            -H "Content-Type: application/json" \
+            -d @"$WORKDIR/rekor-v2-request.json"
+        )"
+
+        echo "Rekor response:"
+        echo "$RESPONSE" | jq .
+
+        if ! echo "$RESPONSE" | jq -e '.logIndex // .log_index // .entryID // .entryId' > /dev/null; then
+          echo "Rekor v2 upload failed"
+          exit 1
+        fi
+
+        FINAL_BUNDLE="${PWD}/${BASENAME}.sigstore.json"
+        cp "$WORKDIR/${BASENAME}.sigstore.json" "$FINAL_BUNDLE"
+
+        echo "bundle-path=$FINAL_BUNDLE" >> "$GITHUB_OUTPUT"
