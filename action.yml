@@ -127,7 +127,7 @@ runs:
           exit 1
         fi
 
-        FINAL_ENVELOPE="${PWD}/evelope-${LOG_INDEX}.json        
+        FINAL_ENVELOPE="${PWD}/evelope-${LOG_INDEX}.json"
         FINAL_TLOG_BUNDLE="${PWD}/tlog-${LOG_INDEX}.bundle"
         printf '%s\n' "$RESPONSE" | jq . > "$FINAL_TLOG_BUNDLE"
 
