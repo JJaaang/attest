@@ -13,7 +13,7 @@ inputs:
 outputs:
   envelope-path:
     description: "Path to the generated DSSE envelope JSON file"
-    value: ${{ steps.run.output.envelope-path }}
+    value: ${{ steps.run.outputs.envelope-path }}
   tlog-bundle-path:
     description: "Path to the generated Rekor tlog bundle JSON file"
     value: ${{ steps.run.outputs.tlog-bundle-path }}
@@ -127,7 +127,7 @@ runs:
           exit 1
         fi
 
-        FINAL_ENVELOPE="${PWD}/evelope-${LOG_INDEX}.json"
+        FINAL_ENVELOPE="${PWD}/envelope-${LOG_INDEX}.json"
         FINAL_TLOG_BUNDLE="${PWD}/tlog-${LOG_INDEX}.bundle"
         printf '%s\n' "$RESPONSE" | jq . > "$FINAL_TLOG_BUNDLE"
 
