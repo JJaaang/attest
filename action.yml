@@ -130,6 +130,7 @@ runs:
         FINAL_ENVELOPE="${PWD}/envelope-${LOG_INDEX}.json"
         FINAL_TLOG_BUNDLE="${PWD}/tlog-${LOG_INDEX}.bundle"
         printf '%s\n' "$RESPONSE" | jq . > "$FINAL_TLOG_BUNDLE"
-
+        mv "$WORKDIR/envelope.json" "$FINAL_ENVELOPE"
+        
         echo "envelope-path=$FINAL_ENVELOPE" >> "$GITHUB_OUTPUT"
         echo "tlog-bundle-path=$FINAL_TLOG_BUNDLE" >> "$GITHUB_OUTPUT"
