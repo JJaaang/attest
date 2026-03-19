@@ -91,7 +91,7 @@ runs:
           exit 1
         fi
 
-        echo "SIG_B64" | base64 -d > sign.bin
+        echo "$SIG_B64" | base64 -d > sign.bin
         openssl ts -query -data sign.bin -sha256 -cert -out request.tsq
         curl -sS -H "Content-type: application/timestamp-query" --data-binary @request.tsq https://timestamp.sigstore.dev/api/v1/timestamp -o res.tsr
         SIGNED_TIMESTAMP="$(cat res.tsr | base64 | tr -d '\n')"
