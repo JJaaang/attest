@@ -11,9 +11,14 @@ inputs:
     required: true
 
 outputs:
-  bundle-path:
-    description: "Path to the generated Sigstore bundle JSON file"
-    value: ${{ steps.run.outputs.bundle-path }}
+  envelope-path:
+    description: "Path to the generated DSSE envelope JSON file"
+    value: ${{ steps.run.output.envelope-path }}
+  tlog-bundle-path:
+    description: "Path to the generated Rekor tlog bundle JSON file"
+    value: ${{ steps.run.outputs.tlog-bundle-path }}
+
+    
 
 runs:
   using: "composite"
@@ -121,9 +126,10 @@ runs:
           echo "failed to extract logIndex"
           exit 1
         fi
-        
-        FINAL_BUNDLE="${PWD}/${BASENAME}.tlog-${LOG_INDEX}.bundle"
-        
-        printf '%s\n' "$RESPONSE" | jq . > "$FINAL_BUNDLE"
 
-        echo "bundle-path=$FINAL_BUNDLE" >> "$GITHUB_OUTPUT"
+        FINAL_ENVELOPE="${PWD}/evelope-${LOG_INDEX}.json        
+        FINAL_TLOG_BUNDLE="${PWD}/tlog-${LOG_INDEX}.bundle"
+        printf '%s\n' "$RESPONSE" | jq . > "$FINAL_TLOG_BUNDLE"
+
+        echo "envelop-path=$FINAL_ENVELOPE" >> "$GITHUB_OUTPUT"
+        echo "tlog-bundle-path=$FINAL_TLOG_BUNDLE" >> "$GITHUB_OUTPUT"
