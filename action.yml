@@ -97,14 +97,14 @@ runs:
         SIGNED_TIMESTAMP="$(cat res.tsr | base64 | tr -d '\n')"
         echo "$SIGNED_TIMESTAMP"
 
-        jq -n \
+        jq -cn \
           --arg pt "${PAYLOAD_TYPE}" \
           --arg p "${PAYLOAD_B64}" \
           --arg s "${SIG_B64}" \
           '{payload: $p, payloadType: $pt, signatures: [{sig: $s, keyid: ""}]}' \
           > "$WORKDIR/envelope.json"
 
-        jq -n \
+        jq -cn \
           --argjson env "$(cat "$WORKDIR/envelope.json")" \
           --arg cert "${CERT_RAW_B64}" \
           --arg alg "${SIGN_ALG}" \
@@ -135,7 +135,7 @@ runs:
 
         FINAL_ENVELOPE="${PWD}/envelope-${LOG_INDEX}.json"
         FINAL_TLOG_BUNDLE="${PWD}/tlog-${LOG_INDEX}.bundle"
-        printf '%s\n' "$RESPONSE" | jq . > "$FINAL_TLOG_BUNDLE"
+        printf '%s\n' "$RESPONSE" > "$FINAL_TLOG_BUNDLE"
         mv "$WORKDIR/envelope.json" "$FINAL_ENVELOPE"
         
         echo "envelope-path=$FINAL_ENVELOPE" >> "$GITHUB_OUTPUT"
